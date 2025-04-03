@@ -9,7 +9,7 @@ public class AdvancedEmpDeptTests
     {
         var emps = Database.GetEmps();
 
-        decimal? maxSalary = null; 
+        decimal? maxSalary = emps.Max(x => x.Sal); 
 
         Assert.Equal(5000, maxSalary);
     }
@@ -21,7 +21,9 @@ public class AdvancedEmpDeptTests
     {
         var emps = Database.GetEmps();
 
-        decimal? minSalary = null;
+        decimal? minSalary = emps
+            .Where(e => e.DeptNo == 30)
+            .Min(x => x.Sal);
 
         Assert.Equal(1250, minSalary);
     }
@@ -33,10 +35,13 @@ public class AdvancedEmpDeptTests
     {
         var emps = Database.GetEmps();
 
-        // var firstTwo = null; 
-        //
-        // Assert.Equal(2, firstTwo.Count);
-        // Assert.True(firstTwo[0].HireDate <= firstTwo[1].HireDate);
+        var firstTwo = emps
+            .OrderBy(e => e.HireDate)
+            .Take(2)
+            .ToList(); 
+        
+        Assert.Equal(2, firstTwo.Count);
+        Assert.True(firstTwo[0].HireDate <= firstTwo[1].HireDate);
     }
 
     // 14. DISTINCT job titles
@@ -46,10 +51,13 @@ public class AdvancedEmpDeptTests
     {
         var emps = Database.GetEmps();
 
-        // var jobs = null; 
-        //
-        // Assert.Contains("PRESIDENT", jobs);
-        // Assert.Contains("SALESMAN", jobs);
+        var jobs = emps
+            .Select(e => e.Job)
+            .Distinct()
+            .ToList(); 
+        
+        Assert.Contains("PRESIDENT", jobs);
+        Assert.Contains("SALESMAN", jobs);
     }
 
     // 15. Employees with managers (NOT NULL Mgr)
@@ -59,9 +67,11 @@ public class AdvancedEmpDeptTests
     {
         var emps = Database.GetEmps();
 
-        // var withMgr = null; 
-        //
-        // Assert.All(withMgr, e => Assert.NotNull(e.Mgr));
+        var withMgr = emps
+            .Where(e => e.Mgr != null)
+            .ToList(); 
+        
+        Assert.All(withMgr, e => Assert.NotNull(e.Mgr));
     }
 
     // 16. All employees earn more than 500
@@ -71,9 +81,11 @@ public class AdvancedEmpDeptTests
     {
         var emps = Database.GetEmps();
 
-        // var result = null; 
-        //
-        // Assert.True(result);
+        var result = emps
+            .Where(e => e.Sal > 500)
+            .ToList(); 
+        
+        Assert.True(result.All(e => e.Sal > 500));
     }
 
     // 17. Any employee with commission over 400
@@ -83,9 +95,11 @@ public class AdvancedEmpDeptTests
     {
         var emps = Database.GetEmps();
 
-        // var result = null; 
-        //
-        // Assert.True(result);
+        var result = emps
+            .Where(e => e.Comm > 400)
+            .ToList(); 
+        
+        Assert.True(result.Any(e => e.Comm > 400));
     }
 
     // 18. Self-join to get employee-manager pairs
@@ -95,9 +109,18 @@ public class AdvancedEmpDeptTests
     {
         var emps = Database.GetEmps();
 
-        // var result = null;
-        //
-        // Assert.Contains(result, r => r.Employee == "SMITH" && r.Manager == "FORD");
+        var result = emps
+            .Join(emps,
+                e => e.EmpNo,
+                m => m.Mgr,
+                (e, m) => new
+                {
+                    Employee = m.EName,
+                    Manager = e.EName,
+                })
+            .ToList();
+        
+        Assert.Contains(result, r => r.Employee == "SMITH" && r.Manager == "FORD");
     }
 
     // 19. Let clause usage (sal + comm)
@@ -107,9 +130,15 @@ public class AdvancedEmpDeptTests
     {
         var emps = Database.GetEmps();
 
-        // var result = null; 
-        //
-        // Assert.Contains(result, r => r.EName == "ALLEN" && r.Total == 1900);
+        var result = emps
+            .Select(e => new
+            {
+                e.EName,
+                Total = e.Sal + e.Comm ?? 0
+            })
+            .ToList(); 
+        
+        Assert.Contains(result, r => r.EName == "ALLEN" && r.Total == 1900);
     }
 
     // 20. Join all three: Emp → Dept → Salgrade
@@ -121,8 +150,20 @@ public class AdvancedEmpDeptTests
         var depts = Database.GetDepts();
         var grades = Database.GetSalgrades();
 
-        // var result = null; 
-        //
-        // Assert.Contains(result, r => r.EName == "ALLEN" && r.DName == "SALES" && r.Grade == 3);
+        var result = emps
+            .Join(depts,
+                e => e.DeptNo,
+                d => d.DeptNo,
+                (e, d) => new
+                {
+                    e.Sal,
+                    e.EName,
+                    d.DName
+                })    
+            .SelectMany(e => grades.Where(s => e.Sal >= s.Losal && e.Sal <= s.Hisal),
+                (e, s) => new {e.EName, e.DName, s.Grade })
+            .ToList();
+        
+        Assert.Contains(result, r => r.EName == "ALLEN" && r.DName == "SALES" && r.Grade == 3);
     }
 }
